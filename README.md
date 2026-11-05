@@ -1,8 +1,7 @@
 # DROM6316 GD-ROM firmware
 
-Firmware for the PHILIPS DVD-ROM DROM6316 (SATA, made by PBDS/BenQ, MediaTek MT1359) that reads
-the whole Dreamcast GD-ROM, including the high-density area, and dumps normal CDs for Redump.
-Based on ODNK. Current version: **DR05**. Tested on one drive, which had ODNK.
+PHILIPS DVD-ROM DROM6316 (SATA, PBDS/BenQ, MediaTek MT1359) firmware for dumping the high-density
+area of Dreamcast GD-ROMs. Based on ODNK. Current version: **DR05**.
 
 ## Download
 
@@ -14,43 +13,32 @@ Changes against ODNK: [PATCHES.md](PATCHES.md).
 
 ## Flashing (Linux)
 
-Tested on a native SATA (AHCI) port. Needs Python 3 and root. Put the image and `drom6316flash.py`
-in one directory.
+Native SATA port. Needs Python 3 and root. Put the image and `drom6316flash.py` in one directory.
 
 ```
 sudo python3 drom6316flash.py read backup.bin        # back up first
-sudo python3 drom6316flash.py DROM6316_DR05.bin      # dry run: compares, sends nothing but reads
+sudo python3 drom6316flash.py DROM6316_DR05.bin      # dry run
 sudo python3 drom6316flash.py DROM6316_DR05.bin go   # flash
 ```
 
-- The drive is found by its model; set `SGDEV=/dev/sgN` to pick it explicitly.
-- `go` refuses an image for another drive or with a wrong checksum, saves the current flash to
-  `drom6316flash-backup-<time>.bin`, uploads the image, reads it back from the drive and only then
-  lets the drive write it. The write takes about 9 seconds. Do not power-cycle the drive while it runs.
-- Afterwards power-cycle the drive (power off and on, not just a reboot of the computer) and run the
-  dry run again: it must report 0 bytes differ, and the drive must report revision DR05.
+- The drive is found by its model. `SGDEV=/dev/sgN` picks one explicitly.
+- `go` saves the current flash to `drom6316flash-backup-<time>.bin` first. The write takes about
+  9 seconds; do not power off the drive during it.
+- Then power-cycle the drive and run the dry run again. It should report 0 bytes differ.
 - To go back, flash the backup with `go`.
-- A disc may stay in the drive while flashing.
+- The disc can stay in the drive.
 
 ## Dumping
 
-**GD-ROM**: [dcdump](https://github.com/scarabeeta/dcdump) knows the drive (DR05 and later). It runs
-redumper for both areas with the settings below, splits the high-density area into tracks and
-compares every track with redump:
+With [dcdump](https://github.com/scarabeeta/dcdump):
 
 ```
-dcdump --drive DROM6316 --ld-drive same
+dcdump --drive DROM6316
 ```
 
-**By hand**, with [redumper](https://github.com/superg/redumper), which does not know the drive, so
-its parameters are given on the command line. Normal CDs and the GD-ROM low-density area:
+dcdump reads the LD area on a drive from Redump's CD list, then the HD area on the DROM6316.
 
-```
-redumper disc --drive=/dev/srN --drive-type=GENERIC --drive-read-offset=6 --drive-c2-shift=0 \
-  --drive-pregap-start=-135 --drive-read-method=BE --drive-sector-order=DATA_SUB_C2
-```
-
-GD-ROM high-density area (LBA 45000-549149), as one image (not split into tracks):
+By hand, HD area with redumper at 8x:
 
 ```
 redumper dump --drive=/dev/srN --drive-type=GENERIC --drive-read-offset=6 --drive-c2-shift=0 \
@@ -58,26 +46,24 @@ redumper dump --drive=/dev/srN --drive-type=GENERIC --drive-read-offset=6 --driv
   --speed=8 --lba-start=45000 --lba-end=549151
 ```
 
-- `--speed=8` is required for the high-density area (see Known limits).
-- `--lba-end=549151`, not 549150: with the disc's positive write offset the last sector needs one
-  more sector of data.
+This gives one image of the HD area, not split into tracks. The end is 549151, one past the last
+sector, because of the disc's write offset.
 
 ## Known limits
 
-- **Read GD-ROM high-density areas at 8x.** At the maximum speed the outer part of the HD area gives
-  C2 errors and, worse, runs of sectors shifted by 186 samples **without any error report**. At 8x
-  both disappeared (0 C2, 0 shifted sectors over whole discs).
-- A single long seek from about 10 minutes to the outer edge of the HD area sometimes times out
-  (3/02/00). Sequential dumping is not affected.
-- DVD reading was not re-tested.
+- Tested on one drive.
+- Read the HD area at 8x. At full speed the outer part gives C2 errors, and some sectors come back
+  shifted by 186 samples with no error reported.
+- A single long seek from around minute 10 to the outer edge sometimes times out (3/02/00).
+  Sequential reads are fine.
+- DVD reading not tested.
 
 ## Evidence
 
-Dumps matching Redump, made with DR05:
+HD tracks matching Redump, DR05 at 8x:
 
-1. Harusame Youbi (T-20106M, redump 27709): high-density track 3, one redumper pass, CRC/MD5 match.
-2. Aero Dancing i (T-6807M, redump 43737): high-density tracks 3-5, one redumper pass, CRC/MD5 match.
-3. Tekken 3 (Japan, Asia) (redump 588), CD: all 3 tracks match.
+1. Harusame Youbi (T-20106M): track 3.
+2. Aero Dancing i (T-6807M): tracks 3-5.
 
 ## License
 
